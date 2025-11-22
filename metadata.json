@@ -1,0 +1,5 @@
+{
+  "name": "VotoGenius AI",
+  "description": "A smart voting system powered by Gemini AI. Create polls instantly with AI suggestions, vote in real-time, and get intelligent analysis of the results.",
+  "requestFramePermissions": []
+}
