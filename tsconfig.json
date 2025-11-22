@@ -10,9 +10,7 @@
       "DOM.Iterable"
     ],
     "skipLibCheck": true,
-    "types": [
-      "node"
-    ],
+    // Do not restrict global type packages so React's JSX types stay available
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",

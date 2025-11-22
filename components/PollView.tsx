@@ -49,6 +49,30 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
       <div className="space-y-2">
         <h1 className="text-3xl font-bold text-gray-900">{poll.question}</h1>
         {poll.description && <p className="text-gray-500 text-lg">{poll.description}</p>}
+        
+        {poll.tokenAddress && (
+          <div className="flex items-center gap-3 p-4 bg-indigo-50 rounded-lg border border-indigo-200 mt-3">
+            {poll.tokenLogo && (
+              <img 
+                src={poll.tokenLogo} 
+                alt={poll.tokenSymbol || 'Token'} 
+                className="w-8 h-8 rounded-full"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            )}
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-indigo-900">
+                {poll.tokenSymbol || 'Token'} Required to Vote
+              </p>
+              <p className="text-xs text-indigo-600 font-mono">
+                {poll.tokenAddress}
+              </p>
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <span>{totalVotes} votes</span>
           <span>•</span>
