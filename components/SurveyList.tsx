@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { Poll } from '../types';
 import { Card, Button } from './UI';
 import { BarChart3, Search, RefreshCcw } from 'lucide-react';
-import { fetchSurveyPolls } from '../services/surveyService';
-import { useAccount } from 'wagmi';
+import { fetchContractPolls, SURVEY_CONTRACTS, prepareVoteData } from '../services/surveyService';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
 import { PollView } from './PollView';
 
 interface SurveyListProps {}
@@ -11,11 +12,14 @@ interface SurveyListProps {}
 export const SurveyList: React.FC<SurveyListProps> = () => {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingContracts, setLoadingContracts] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [activePoll, setActivePoll] = useState<Poll | null>(null);
+  const [votingStatus, setVotingStatus] = useState<string | null>(null);
   
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain: currentChain } = useAccount();
+  const { data: hash, writeContract, isPending, error: writeError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+  const { switchChainAsync } = useSwitchChain();
 
   useEffect(() => {
     if (isConnected && address) {
@@ -23,40 +27,94 @@ export const SurveyList: React.FC<SurveyListProps> = () => {
     }
   }, [isConnected, address]);
 
+  useEffect(() => {
+    if (isConfirmed) {
+      setVotingStatus('✅ Vote confirmed on blockchain!');
+      loadSurveys(); // Reload surveys after successful vote
+      setTimeout(() => setVotingStatus(null), 5000);
+    }
+  }, [isConfirmed]);
+
+  useEffect(() => {
+    if (writeError) {
+      setVotingStatus(`❌ Vote failed: ${writeError.message}`);
+      setTimeout(() => setVotingStatus(null), 5000);
+    }
+  }, [writeError]);
+
   const loadSurveys = async () => {
-    setIsLoading(true);
     setError(null);
+    
     try {
-      const onChainPolls = await fetchSurveyPolls();
-      setPolls(onChainPolls);
+      const results = await Promise.all(
+        SURVEY_CONTRACTS.map(async (contractAddress) => {
+          setLoadingContracts(prev => new Set(prev).add(contractAddress.address));
+          try {
+            const contractPolls = await fetchContractPolls(contractAddress.address, contractAddress.chain);
+            return contractPolls;
+          } catch (err) {
+            console.error(`Failed to load survey from ${contractAddress.address}`, err);
+            return [];
+          } finally {
+            setLoadingContracts(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(contractAddress.address);
+              return newSet;
+            });
+          }
+        })
+      );
+
+      const allPolls = results.flat();
+      setPolls(prev => {
+        const pollMap = new Map(prev.map(p => [p.id, p]));
+        allPolls.forEach(poll => pollMap.set(poll.id, poll));
+        return Array.from(pollMap.values());
+      });
     } catch (err) {
       console.error('Failed to load surveys', err);
       setError('No pudimos cargar las encuestas on-chain.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleVote = (pollId: string, optionId: string) => {
-    setPolls((prevPolls) =>
-      prevPolls.map((poll) => {
-        if (poll.id !== pollId) return poll;
-        return {
-          ...poll,
-          options: poll.options.map((opt) =>
-            opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt
-          ),
-        };
-      })
-    );
-    // Also update activePoll if it's the current poll
-    if (activePoll?.id === pollId) {
-      setActivePoll({
-        ...activePoll,
-        options: activePoll.options.map((opt) =>
-          opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt
-        ),
+  const handleVote = async (pollId: string, answerIds: string[]) => {
+    if (!address || answerIds.length === 0) return;
+
+    setVotingStatus('🔄 Preparing vote transaction...');
+
+    try {
+      // Switch to Sepolia if not already
+      const SEPOLIA_CHAIN_ID = 11155111;
+      if (currentChain?.id !== SEPOLIA_CHAIN_ID) {
+        setVotingStatus('🔄 Switching to Sepolia network...');
+        await switchChainAsync({ chainId: SEPOLIA_CHAIN_ID });
+      }
+
+      setVotingStatus('✍️ Please confirm the transaction in your wallet...');
+
+      const poll = polls.find(p => p.id === pollId);
+      if (!poll) throw new Error('Survey not found');
+
+      const voteData = prepareVoteData(poll, answerIds);
+
+      await writeContract({
+        address: voteData.address,
+        abi: voteData.abi,
+        functionName: 'vote' as const,
+        args: [voteData.args[0]],
+        account: address,
+        chain: voteData.chain,
       });
+
+      setVotingStatus('⏳ Transaction submitted. Waiting for confirmation...');
+    } catch (err: any) {
+      console.error('Vote error:', err);
+      if (err.message.includes('User rejected')) {
+        setVotingStatus('❌ Transaction rejected by user');
+      } else {
+        setVotingStatus(`❌ Vote failed: ${err.message || 'Unknown error'}`);
+      }
+      setTimeout(() => setVotingStatus(null), 5000);
     }
   };
 
@@ -64,40 +122,95 @@ export const SurveyList: React.FC<SurveyListProps> = () => {
     setPolls((prev) =>
       prev.map((p) => (p.id === updatedPoll.id ? updatedPoll : p))
     );
-    if (activePoll?.id === updatedPoll.id) {
-      setActivePoll(updatedPoll);
-    }
   };
 
-  const filteredPolls = polls.filter((p) =>
-    p.question.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredPolls = polls
+    .filter((p) => p.question.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      // Open polls first
+      if (a.isOpen === true && b.isOpen !== true) return -1;
+      if (a.isOpen !== true && b.isOpen === true) return 1;
+      return 0;
+    });
+
+  return (
+    <Routes>
+      <Route index element={
+        <SurveyListMain 
+          polls={filteredPolls}
+          loadingContracts={loadingContracts}
+          error={error}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          loadSurveys={loadSurveys}
+          votingStatus={votingStatus}
+        />
+      } />
+      <Route path=":address" element={
+        <SurveyDetailPage 
+          polls={polls}
+          onVote={handleVote}
+          onUpdatePoll={handleUpdatePoll}
+          isVoting={isPending || isConfirming}
+          votingStatus={votingStatus}
+        />
+      } />
+    </Routes>
   );
+};
 
-  // If viewing a specific poll, show PollView
-  if (activePoll) {
-    return (
-      <PollView
-        poll={activePoll}
-        onVote={handleVote}
-        onUpdatePoll={handleUpdatePoll}
-        onBack={() => setActivePoll(null)}
-      />
-    );
-  }
+// Component for survey detail page
+const SurveyDetailPage: React.FC<{
+  polls: Poll[];
+  onVote: (pollId: string, answerIds: string[]) => Promise<void>;
+  onUpdatePoll: (poll: Poll) => void;
+  isVoting: boolean;
+  votingStatus: string | null;
+}> = ({ polls, onVote, onUpdatePoll, isVoting, votingStatus }) => {
+  const { address } = useParams<{ address: string }>();
+  const navigate = useNavigate();
+  const poll = polls.find(p => p.id === address);
 
-  if (isLoading) {
+  if (!poll) {
     return (
-      <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-        <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-400 animate-spin">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900">Loading surveys...</h3>
-        <p className="text-gray-500">Fetching on-chain data</p>
+      <div className="text-center py-12 bg-white rounded-xl border border-red-200">
+        <h3 className="text-lg font-medium text-red-600">Survey not found</h3>
+        <p className="text-gray-500 mb-4">The survey you're looking for doesn't exist or hasn't loaded yet.</p>
+        <Button onClick={() => navigate('/surveys')}>Back to Surveys</Button>
       </div>
     );
   }
+
+  return (
+    <>
+      {votingStatus && (
+        <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-700 text-center font-medium">
+          {votingStatus}
+        </div>
+      )}
+      <PollView
+        poll={poll}
+        onVote={onVote}
+        onUpdatePoll={onUpdatePoll}
+        onBack={() => navigate('/surveys')}
+        isVoting={isVoting}
+      />
+    </>
+  );
+};
+
+// Component for survey list main view
+const SurveyListMain: React.FC<{
+  polls: Poll[];
+  loadingContracts: Set<string>;
+  error: string | null;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  loadSurveys: () => void;
+  votingStatus: string | null;
+}> = ({ polls, loadingContracts, error, searchQuery, setSearchQuery, loadSurveys, votingStatus }) => {
+  const navigate = useNavigate();
+  const isLoading = loadingContracts.size > 0;
 
   if (error) {
     return (
@@ -110,6 +223,12 @@ export const SurveyList: React.FC<SurveyListProps> = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {votingStatus && (
+        <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-700 text-center font-medium">
+          {votingStatus}
+        </div>
+      )}
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -141,20 +260,49 @@ export const SurveyList: React.FC<SurveyListProps> = () => {
 
       {/* Survey Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredPolls.length > 0 ? (
-          filteredPolls.map((poll) => (
+        {/* Show skeletons for loading contracts */}
+        {Array.from(loadingContracts).map((contractAddress) => (
+          <Card key={contractAddress} className="flex flex-col h-full animate-pulse">
+            <div className="p-6 flex flex-col h-full">
+              <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
+              <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
+              <div className="flex-grow"></div>
+              <div className="mt-4 pt-4 border-t border-gray-50 flex justify-between">
+                <div className="h-4 bg-gray-200 rounded w-20"></div>
+                <div className="h-4 bg-gray-200 rounded w-16"></div>
+              </div>
+            </div>
+          </Card>
+        ))}
+
+        {/* Show actual polls */}
+        {polls.length > 0 ? (
+          polls.map((poll) => (
             <Card
               key={poll.id}
               className="hover:shadow-md transition-all duration-200 flex flex-col h-full group cursor-pointer border-l-4 border-l-transparent hover:border-l-indigo-500"
             >
               <div
                 className="p-6 flex flex-col h-full"
-                onClick={() => setActivePoll(poll)}
+                onClick={() => navigate(`/surveys/${poll.id}`)}
               >
                 <div className="flex-grow">
-                  <h3 className="text-lg font-bold mb-2 text-gray-900 group-hover:text-indigo-600 transition-colors">
-                    {poll.question}
-                  </h3>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors flex-1">
+                      {poll.question}
+                    </h3>
+                    {poll.isOpen === true && (
+                      <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full whitespace-nowrap">
+                        Open
+                      </span>
+                    )}
+                    {poll.isOpen === false && (
+                      <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full whitespace-nowrap">
+                        Closed
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-500 line-clamp-2 mb-4">
                     {poll.description || "No description provided."}
                   </p>
@@ -198,13 +346,15 @@ export const SurveyList: React.FC<SurveyListProps> = () => {
             </Card>
           ))
         ) : (
-          <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-            <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-400">
-              <Search className="w-6 h-6" />
+          !isLoading && (
+            <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+              <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-400">
+                <Search className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">No surveys found</h3>
+              <p className="text-gray-500">Try adjusting your search or refresh to load surveys</p>
             </div>
-            <h3 className="text-lg font-medium text-gray-900">No surveys found</h3>
-            <p className="text-gray-500">Try adjusting your search</p>
-          </div>
+          )
         )}
       </div>
     </div>

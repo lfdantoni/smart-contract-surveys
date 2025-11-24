@@ -7,26 +7,73 @@ import { ArrowLeft, Sparkles, CheckCircle, Share2 } from 'lucide-react';
 
 interface PollViewProps {
   poll: Poll;
-  onVote: (pollId: string, optionId: string) => void;
+  onVote: (pollId: string, answerIds: string[]) => void;
   onBack: () => void;
   onUpdatePoll: (updatedPoll: Poll) => void;
+  isVoting?: boolean;
+}
+
+interface Question {
+  id: number;
+  text: string;
+  answers: Array<{ id: string; text: string; votes: number }>;
 }
 
 const COLORS = ['#4f46e5', '#06b6d4', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
-export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpdatePoll }) => {
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpdatePoll, isVoting }) => {
+  // Map of questionId -> selected answerId
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [hasVoted, setHasVoted] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const totalVotes = poll.options.reduce((acc, curr) => acc + curr.votes, 0);
 
-  const handleVote = () => {
-    if (selectedOption) {
-      onVote(poll.id, selectedOption);
-      setHasVoted(true);
+  // Group options by question
+  const questions: Question[] = React.useMemo(() => {
+    const questionsMap = new Map<number, Question>();
+    
+    poll.options.forEach(option => {
+      const [questionId, answerId] = option.id.split('-').map(Number);
+      const questionText = option.text.match(/^Q\d+: (.+?) - /)?.[1] || 'Question';
+      const answerText = option.text.split(' - ').slice(1).join(' - ');
+      
+      if (!questionsMap.has(questionId)) {
+        questionsMap.set(questionId, {
+          id: questionId,
+          text: questionText,
+          answers: []
+        });
+      }
+      
+      questionsMap.get(questionId)!.answers.push({
+        id: option.id,
+        text: answerText,
+        votes: option.votes
+      });
+    });
+    
+    return Array.from(questionsMap.values()).sort((a, b) => a.id - b.id);
+  }, [poll.options]);
+
+  const handleVote = async () => {
+    // Extract all selected answer IDs
+    const answerIds = Object.values(selectedAnswers);
+    
+    if (answerIds.length === questions.length) {
+      await onVote(poll.id, answerIds);
+      // Don't set hasVoted here - let the parent handle transaction confirmation
     }
   };
+
+  const handleSelectAnswer = (questionId: number, answerId: string) => {
+    setSelectedAnswers(prev => ({
+      ...prev,
+      [questionId]: answerId
+    }));
+  };
+
+  const allQuestionsAnswered = Object.keys(selectedAnswers).length === questions.length;
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
@@ -47,7 +94,18 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
       </Button>
 
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">{poll.question}</h1>
+        <div className="flex items-start justify-between">
+          <h1 className="text-3xl font-bold text-gray-900 flex-1">{poll.question}</h1>
+          {poll.isOpen !== undefined && (
+            <span className={`ml-4 px-3 py-1.5 rounded-full text-sm font-medium ${
+              poll.isOpen 
+                ? 'bg-green-100 text-green-700 border border-green-200' 
+                : 'bg-red-100 text-red-700 border border-red-200'
+            }`}>
+              {poll.isOpen ? '🟢 Voting Open' : '🔴 Voting Closed'}
+            </span>
+          )}
+        </div>
         {poll.description && <p className="text-gray-500 text-lg">{poll.description}</p>}
         
         {poll.tokenAddress && (
@@ -75,40 +133,48 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
         
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <span>{totalVotes} votes</span>
-          <span>•</span>
-          <span>Created {new Date(poll.createdAt).toLocaleDateString()}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Voting Section */}
-        <div className="space-y-6">
-          <Card className="p-6 h-full">
+      {poll.isOpen ? (
+        /* Show only voting section when poll is open */
+        <div className="max-w-2xl mx-auto">
+          <Card className="p-6">
             <h2 className="text-xl font-semibold mb-4">Cast your vote</h2>
+            <p className="text-sm text-gray-500 mb-6">Select one answer for each question</p>
             {!hasVoted ? (
-              <div className="space-y-3">
-                {poll.options.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => setSelectedOption(option.id)}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all flex justify-between items-center group ${
-                      selectedOption === option.id
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                        : 'border-gray-100 hover:border-indigo-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="font-medium">{option.text}</span>
-                    {selectedOption === option.id && (
-                      <CheckCircle className="w-5 h-5 text-indigo-600" />
-                    )}
-                  </button>
+              <div className="space-y-6">
+                {questions.map((question) => (
+                  <div key={question.id} className="space-y-3">
+                    <h3 className="font-semibold text-gray-900 text-lg">
+                      Question {question.id}: {question.text}
+                    </h3>
+                    <div className="space-y-2 ml-4">
+                      {question.answers.map((answer) => (
+                        <button
+                          key={answer.id}
+                          onClick={() => handleSelectAnswer(question.id, answer.id)}
+                          className={`w-full text-left p-3 rounded-lg border-2 transition-all flex justify-between items-center group ${
+                            selectedAnswers[question.id] === answer.id
+                              ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                              : 'border-gray-100 hover:border-indigo-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          <span className="font-medium">{answer.text}</span>
+                          {selectedAnswers[question.id] === answer.id && (
+                            <CheckCircle className="w-5 h-5 text-indigo-600" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
                 <Button 
                   className="w-full mt-6" 
                   onClick={handleVote}
-                  disabled={!selectedOption}
+                  disabled={!allQuestionsAnswered || isVoting}
                 >
-                  Vote Now
+                  {isVoting ? 'Processing...' : `Vote Now (${Object.keys(selectedAnswers).length}/${questions.length})`}
                 </Button>
               </div>
             ) : (
@@ -118,7 +184,7 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gray-900">Thanks for voting!</h3>
-                  <p className="text-gray-500">Check out the results on the right.</p>
+                  <p className="text-gray-500">Your vote has been recorded.</p>
                 </div>
                 <Button variant="secondary" onClick={() => setHasVoted(false)} className="mx-auto">
                   Vote Again (Demo)
@@ -127,70 +193,92 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
             )}
           </Card>
         </div>
-
-        {/* Results Section */}
+      ) : (
+        /* Show only results section when poll is closed */
         <div className="space-y-6">
-          <Card className="p-6 h-full flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">Live Results</h2>
-              <Button variant="ghost" size="sm" onClick={() => {}}>
-                <Share2 className="w-4 h-4" />
-              </Button>
-            </div>
+          {questions.map((question) => {
+            const questionTotalVotes = question.answers.reduce((sum, a) => sum + a.votes, 0);
+            
+            return (
+              <Card key={question.id} className="p-6">
+                <h3 className="text-lg font-semibold mb-4">
+                  Question {question.id}: {question.text}
+                </h3>
+                
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={question.answers.map((ans) => ({ name: ans.text, votes: ans.votes }))}>
+                    <XAxis dataKey="name" hide />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="votes" radius={8}>
+                      {question.answers.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
 
-            <div className="h-64 w-full flex-grow">
-               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={poll.options} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <XAxis type="number" hide />
-                  <YAxis 
-                    dataKey="text" 
-                    type="category" 
-                    width={100} 
-                    tick={{fontSize: 12}}
-                    interval={0}
-                  />
-                  <Tooltip 
-                    cursor={{fill: 'transparent'}}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Bar dataKey="votes" radius={[0, 4, 4, 0]} barSize={32}>
-                    {poll.options.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+                <div className="space-y-3 mt-4">
+                  {question.answers.map((answer, idx) => {
+                    const percentage = questionTotalVotes > 0 ? ((answer.votes / questionTotalVotes) * 100).toFixed(1) : '0';
+                    return (
+                      <div key={answer.id} className="flex items-center gap-3">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm font-medium text-gray-900">{answer.text}</span>
+                            <span className="text-sm text-gray-500">{percentage}%</span>
+                          </div>
+                          <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${percentage}%`,
+                                backgroundColor: COLORS[idx % COLORS.length],
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-gray-500">{answer.votes}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            );
+          })}
 
-            <div className="mt-6 pt-6 border-t border-gray-100">
-                {!poll.aiAnalysis ? (
-                  <div className="bg-indigo-50 rounded-lg p-4 text-center">
-                     <p className="text-indigo-900 text-sm mb-3 font-medium">Want deeper insights?</p>
-                     <Button 
-                      onClick={handleAnalyze} 
-                      variant="secondary"
-                      isLoading={isAnalyzing}
-                      className="w-full text-indigo-700 border-indigo-200 hover:bg-indigo-100"
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Analyze with Gemini AI
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-5 border border-indigo-100">
-                    <div className="flex items-center gap-2 mb-2 text-indigo-800 font-semibold">
-                       <Sparkles className="w-4 h-4" />
-                       <span>AI Insight</span>
-                    </div>
-                    <p className="text-gray-700 text-sm leading-relaxed italic">
-                      "{poll.aiAnalysis}"
-                    </p>
-                  </div>
-                )}
-            </div>
+          <Card className="p-6">
+            {!poll.aiAnalysis ? (
+              <div className="bg-indigo-50 rounded-lg p-4 text-center">
+                <p className="text-indigo-900 text-sm mb-3 font-medium">Want deeper insights?</p>
+                <Button 
+                  onClick={handleAnalyze} 
+                  variant="secondary"
+                  isLoading={isAnalyzing}
+                  className="w-full text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Analyze with Gemini AI
+                </Button>
+              </div>
+            ) : (
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-5 border border-indigo-100">
+                <div className="flex items-center gap-2 mb-2 text-indigo-800 font-semibold">
+                  <Sparkles className="w-4 h-4" />
+                  <span>AI Insight</span>
+                </div>
+                <p className="text-gray-700 text-sm leading-relaxed italic">
+                  "{poll.aiAnalysis}"
+                </p>
+              </div>
+            )}
           </Card>
         </div>
-      </div>
+      )}
     </div>
   );
 };

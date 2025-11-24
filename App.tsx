@@ -1,4 +1,5 @@
 import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Login } from "./components/Login";
 import { Navbar } from "./components/Navbar";
 import { SurveyList } from "./components/SurveyList";
@@ -11,18 +12,42 @@ const MainApp: React.FC = () => {
   const { address, isConnected } = useAccount();
   const { open } = useAppKit();
 
-  // Show Login if not connected
-  if (!isConnected || !address) {
-    return <Login onConnect={() => open()} />;
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 pb-12 animate-fade-in">
-      <Navbar />
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <SurveyList />
-      </main>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        {/* Login route */}
+        <Route 
+          path="/" 
+          element={
+            isConnected && address ? (
+              <Navigate to="/surveys" replace />
+            ) : (
+              <Login onConnect={() => open()} />
+            )
+          } 
+        />
+        
+        {/* Protected routes - require authentication */}
+        <Route
+          path="/surveys/*"
+          element={
+            !isConnected || !address ? (
+              <Navigate to="/" replace />
+            ) : (
+              <div className="min-h-screen bg-gray-50 text-gray-900 pb-12 animate-fade-in">
+                <Navbar />
+                <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                  <SurveyList />
+                </main>
+              </div>
+            )
+          }
+        />
+        
+        {/* Redirect any other route to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 };
 
