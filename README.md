@@ -2,7 +2,7 @@
 
 VotoGenius is a decentralized interface for viewing and voting on on‑chain polls deployed as individual smart contracts (Sepolia testnet). Each poll lives at a contract address; votes are recorded on‑chain via the contract's `vote` function (multi‑question support). The app provides: light/dark/system theme toggle, per‑contract skeleton loading, runtime environment variable injection (Docker entrypoint), and optional AI analysis of aggregated results (Gemini). It does **not** create or deploy new polls.
 
-> Deploy URL: (add the public URL here, e.g. [https://votogenius.app](https://n8n-smart-contract-surveys.pvqgay.easypanel.host/))
+> Deploy URL: (add the public URL here, e.g. [https://n8n-smart-contract-surveys.pvqgay.easypanel.host](https://n8n-smart-contract-surveys.pvqgay.easypanel.host))
 
 ## Goals
 
