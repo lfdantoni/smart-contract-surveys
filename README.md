@@ -25,7 +25,7 @@ VotoGenius is a decentralized interface for viewing and voting on on‑chain pol
 
 | View | Screenshot |
 |------|-----------|
-| List | ![dark1](./screenshots/dark1.png) |
+| List | ![dark1](./screenshots/dark1.jpg) |
 | Detail | ![dark2](./screenshots/dark2.png) |
 | Vote | ![dark3](./screenshots/dark3.png) |
 
