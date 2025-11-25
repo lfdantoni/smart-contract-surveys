@@ -153,6 +153,7 @@ export const SurveyList: React.FC<SurveyListProps> = () => {
           onUpdatePoll={handleUpdatePoll}
           isVoting={isPending || isConfirming}
           votingStatus={votingStatus}
+          loadingContracts={loadingContracts}
         />
       } />
     </Routes>
@@ -166,16 +167,31 @@ const SurveyDetailPage: React.FC<{
   onUpdatePoll: (poll: Poll) => void;
   isVoting: boolean;
   votingStatus: string | null;
-}> = ({ polls, onVote, onUpdatePoll, isVoting, votingStatus }) => {
+  loadingContracts: Set<string>;
+}> = ({ polls, onVote, onUpdatePoll, isVoting, votingStatus, loadingContracts }) => {
   const { address } = useParams<{ address: string }>();
   const navigate = useNavigate();
-  const poll = polls.find(p => p.id === address);
+  const addrLc = (address || '').toLowerCase();
+  const poll = polls.find(p => p.id.toLowerCase() === addrLc);
+  const isKnownContract = SURVEY_CONTRACTS.some(c => c.address.toLowerCase() === addrLc);
+  const isLoadingThis = address ? loadingContracts.has(address) || (isKnownContract && loadingContracts.size > 0) : false;
 
   if (!poll) {
+    if (isLoadingThis) {
+      // Skeleton for survey detail loading
+      return (
+        <div className="space-y-4">
+          <div className="h-6 w-48 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+          <div className="h-4 w-80 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+          <div className="h-20 w-full bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+          <div className="h-64 w-full bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+        </div>
+      );
+    }
     return (
-      <div className="text-center py-12 bg-white rounded-xl border border-red-200">
+      <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-red-200 dark:border-red-900">
         <h3 className="text-lg font-medium text-red-600">Survey not found</h3>
-        <p className="text-gray-500 mb-4">The survey you're looking for doesn't exist or hasn't loaded yet.</p>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">The survey you're looking for doesn't exist or hasn't loaded yet.</p>
         <Button onClick={() => navigate('/surveys')}>Back to Surveys</Button>
       </div>
     );
@@ -184,7 +200,7 @@ const SurveyDetailPage: React.FC<{
   return (
     <>
       {votingStatus && (
-        <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-700 text-center font-medium">
+        <div className="mb-4 p-4 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-900 rounded-lg text-indigo-700 dark:text-indigo-300 text-center font-medium">
           {votingStatus}
         </div>
       )}
@@ -214,9 +230,9 @@ const SurveyListMain: React.FC<{
 
   if (error) {
     return (
-      <div className="text-center py-12 bg-white rounded-xl border border-red-200">
+      <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-red-200 dark:border-red-900">
         <h3 className="text-lg font-medium text-red-600">{error}</h3>
-        <p className="text-gray-500">Check your connection or try again later.</p>
+        <p className="text-gray-500 dark:text-gray-400">Check your connection or try again later.</p>
       </div>
     );
   }
@@ -224,7 +240,7 @@ const SurveyListMain: React.FC<{
   return (
     <div className="space-y-8 animate-fade-in">
       {votingStatus && (
-        <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-700 text-center font-medium">
+        <div className="p-4 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-900 rounded-lg text-indigo-700 dark:text-indigo-300 text-center font-medium">
           {votingStatus}
         </div>
       )}
@@ -232,13 +248,13 @@ const SurveyListMain: React.FC<{
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Active Surveys</h1>
-          <p className="text-gray-500">Participate in on-chain surveys</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Active Surveys</h1>
+          <p className="text-gray-500 dark:text-gray-400">Participate in on-chain surveys</p>
         </div>
 
         <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1 md:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
               placeholder="Search surveys..."
@@ -289,26 +305,26 @@ const SurveyListMain: React.FC<{
               >
                 <div className="flex-grow">
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors flex-1">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 transition-colors flex-1">
                       {poll.question}
                     </h3>
                     {poll.isOpen === true && (
-                      <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full whitespace-nowrap">
+                      <span className="ml-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-full whitespace-nowrap">
                         Open
                       </span>
                     )}
                     {poll.isOpen === false && (
-                      <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full whitespace-nowrap">
+                      <span className="ml-2 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-full whitespace-nowrap">
                         Closed
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 line-clamp-2 mb-4">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-4">
                     {poll.description || "No description provided."}
                   </p>
                   
                   {poll.tokenAddress && (
-                    <div className="flex items-center gap-2 mb-3 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                    <div className="flex items-center gap-2 mb-3 p-2 bg-indigo-50 dark:bg-indigo-950 rounded-lg border border-indigo-100 dark:border-indigo-900">
                       {poll.tokenLogo && (
                         <img 
                           src={poll.tokenLogo} 
@@ -320,10 +336,10 @@ const SurveyListMain: React.FC<{
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-indigo-600 font-medium">
+                        <p className="text-xs text-indigo-600 dark:text-indigo-300 font-medium">
                           {poll.tokenSymbol || 'Token'} Required
                         </p>
-                        <p className="text-xs text-gray-500 font-mono truncate">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate">
                           {poll.tokenAddress.substring(0, 6)}...{poll.tokenAddress.substring(poll.tokenAddress.length - 4)}
                         </p>
                       </div>
@@ -331,14 +347,14 @@ const SurveyListMain: React.FC<{
                   )}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-gray-50 flex justify-between items-center text-sm text-gray-500">
+                <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-800 flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
                   <div className="flex items-center gap-1">
                     <BarChart3 className="w-4 h-4" />
                     <span>
                       {poll.options.reduce((a, b) => a + b.votes, 0)} votes
                     </span>
                   </div>
-                  <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium">
+                  <span className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded text-xs font-medium">
                     {poll.options.length} Options
                   </span>
                 </div>
@@ -347,12 +363,12 @@ const SurveyListMain: React.FC<{
           ))
         ) : (
           !isLoading && (
-            <div className="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-              <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4 text-gray-400">
+            <div className="col-span-full text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+              <div className="mx-auto w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4 text-gray-400 dark:text-gray-500">
                 <Search className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900">No surveys found</h3>
-              <p className="text-gray-500">Try adjusting your search or refresh to load surveys</p>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No surveys found</h3>
+              <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or refresh to load surveys</p>
             </div>
           )
         )}

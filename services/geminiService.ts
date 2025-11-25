@@ -1,9 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Poll, PollOption, AIPollSuggestion } from "../types";
+import { GEMINI_API_KEY } from "../env";
 
-// Initialize the client
-// CRITICAL: Using process.env.API_KEY as required
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize the client using our env helper (supports runtime + build-time vars)
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 /**
  * Generates poll ideas based on a user-provided topic.

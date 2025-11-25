@@ -24,9 +24,9 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & {
 
   const variants = {
     primary: "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg",
-    secondary: "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300",
-    ghost: "bg-transparent text-gray-600 hover:bg-gray-100",
-    danger: "bg-red-50 text-red-600 hover:bg-red-100 border border-red-100"
+    secondary: "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300",
+    ghost: "bg-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
+    danger: "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900 border border-red-100 dark:border-red-900"
   };
 
   return (
@@ -42,20 +42,20 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 export const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${className}`}>
+  <div className={`bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden ${className}`}>
     {children}
   </div>
 );
 
 export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ className = '', ...props }) => (
   <input 
-    className={`w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all ${className}`}
+    className={`w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all ${className}`}
     {...props}
   />
 );
 
 export const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <label className="block text-sm font-medium text-gray-700 mb-1">
+  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
     {children}
   </label>
 );

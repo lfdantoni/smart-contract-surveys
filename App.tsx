@@ -34,7 +34,7 @@ const MainApp: React.FC = () => {
             !isConnected || !address ? (
               <Navigate to="/" replace />
             ) : (
-              <div className="min-h-screen bg-gray-50 text-gray-900 pb-12 animate-fade-in">
+              <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 pb-12 animate-fade-in">
                 <Navbar />
                 <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                   <SurveyList />

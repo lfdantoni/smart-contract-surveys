@@ -4,13 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VotoGenius AI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Configure Tailwind after it loads
+      tailwind.config = {
+        darkMode: 'class'
+      };
+    </script>
     <style>
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #f3f4f6;
       }
+      /* Light/Dark background via Tailwind classes on wrapper; avoid forcing bg here */
       /* Custom scrollbar for aesthetics */
       ::-webkit-scrollbar {
         width: 8px;
@@ -33,6 +39,33 @@
         to { opacity: 1; transform: translateY(0); }
       }
     </style>
+    <script>
+      // Apply initial theme before React mounts to avoid flashes
+      (function() {
+        try {
+          const storageKey = 'theme';
+          const userPref = localStorage.getItem(storageKey) || 'system';
+          const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          
+          if (userPref === 'light') {
+            document.documentElement.classList.remove('dark');
+          } else if (userPref === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            // system
+            if (systemDark) {
+              document.documentElement.classList.add('dark');
+            } else {
+              document.documentElement.classList.remove('dark');
+            }
+          }
+          
+          // store normalized value
+          if (!localStorage.getItem(storageKey)) localStorage.setItem(storageKey, 'system');
+        } catch (e) { /* noop */ }
+      })();
+    </script>
+    <script src="/env.js"></script>
     <script type="module" src="/index.tsx"></script>
 </head>
   <body>

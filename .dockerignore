@@ -1,0 +1,21 @@
+# Ignore node_modules in Docker context
+node_modules
+npm-debug.log
+
+# Ignore git files
+.git
+.gitignore
+
+# Ignore environment files
+.env.local
+.env*.local
+
+# Ignore IDE files
+.vscode
+.idea
+
+# Ignore build output (will be created in container)
+dist
+
+# Ignore README and docs
+README.md

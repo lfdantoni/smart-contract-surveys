@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  votogenius:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    container_name: votogenius-app
+    env_file:
+      - .env.local
+    environment:
+      # Map VITE_ prefixed vars from .env.local to APP_ for runtime injection
+      - APP_GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
+      - NODE_ENV=production

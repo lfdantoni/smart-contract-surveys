@@ -95,21 +95,21 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
 
       <div className="space-y-2">
         <div className="flex items-start justify-between">
-          <h1 className="text-3xl font-bold text-gray-900 flex-1">{poll.question}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex-1">{poll.question}</h1>
           {poll.isOpen !== undefined && (
             <span className={`ml-4 px-3 py-1.5 rounded-full text-sm font-medium ${
               poll.isOpen 
-                ? 'bg-green-100 text-green-700 border border-green-200' 
-                : 'bg-red-100 text-red-700 border border-red-200'
+                ? 'bg-green-100 text-green-700 border border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-800' 
+                : 'bg-red-100 text-red-700 border border-red-200 dark:bg-red-900 dark:text-red-300 dark:border-red-800'
             }`}>
               {poll.isOpen ? '🟢 Voting Open' : '🔴 Voting Closed'}
             </span>
           )}
         </div>
-        {poll.description && <p className="text-gray-500 text-lg">{poll.description}</p>}
+        {poll.description && <p className="text-gray-500 dark:text-gray-400 text-lg">{poll.description}</p>}
         
         {poll.tokenAddress && (
-          <div className="flex items-center gap-3 p-4 bg-indigo-50 rounded-lg border border-indigo-200 mt-3">
+          <div className="flex items-center gap-3 p-4 bg-indigo-50 dark:bg-indigo-950 rounded-lg border border-indigo-200 dark:border-indigo-900 mt-3">
             {poll.tokenLogo && (
               <img 
                 src={poll.tokenLogo} 
@@ -121,17 +121,17 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
               />
             )}
             <div className="flex-1">
-              <p className="text-sm font-semibold text-indigo-900">
+              <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">
                 {poll.tokenSymbol || 'Token'} Required to Vote
               </p>
-              <p className="text-xs text-indigo-600 font-mono">
+              <p className="text-xs text-indigo-600 dark:text-indigo-400 font-mono">
                 {poll.tokenAddress}
               </p>
             </div>
           </div>
         )}
         
-        <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
           <span>{totalVotes} votes</span>
         </div>
       </div>
@@ -140,13 +140,13 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
         /* Show only voting section when poll is open */
         <div className="max-w-2xl mx-auto">
           <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Cast your vote</h2>
-            <p className="text-sm text-gray-500 mb-6">Select one answer for each question</p>
+            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Cast your vote</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Select one answer for each question</p>
             {!hasVoted ? (
               <div className="space-y-6">
                 {questions.map((question) => (
                   <div key={question.id} className="space-y-3">
-                    <h3 className="font-semibold text-gray-900 text-lg">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">
                       Question {question.id}: {question.text}
                     </h3>
                     <div className="space-y-2 ml-4">
@@ -156,13 +156,13 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
                           onClick={() => handleSelectAnswer(question.id, answer.id)}
                           className={`w-full text-left p-3 rounded-lg border-2 transition-all flex justify-between items-center group ${
                             selectedAnswers[question.id] === answer.id
-                              ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                              : 'border-gray-100 hover:border-indigo-200 hover:bg-gray-50'
+                              ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                              : 'border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-800'
                           }`}
                         >
-                          <span className="font-medium">{answer.text}</span>
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{answer.text}</span>
                           {selectedAnswers[question.id] === answer.id && (
-                            <CheckCircle className="w-5 h-5 text-indigo-600" />
+                            <CheckCircle className="w-5 h-5 text-indigo-400" />
                           )}
                         </button>
                       ))}
@@ -179,12 +179,12 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
               </div>
             ) : (
               <div className="text-center py-12 space-y-4">
-                <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-300 rounded-full flex items-center justify-center mx-auto">
                   <CheckCircle className="w-8 h-8" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">Thanks for voting!</h3>
-                  <p className="text-gray-500">Your vote has been recorded.</p>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Thanks for voting!</h3>
+                  <p className="text-gray-500 dark:text-gray-400">Your vote has been recorded.</p>
                 </div>
                 <Button variant="secondary" onClick={() => setHasVoted(false)} className="mx-auto">
                   Vote Again (Demo)
@@ -229,10 +229,10 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
                         />
                         <div className="flex-1">
                           <div className="flex justify-between mb-1">
-                            <span className="text-sm font-medium text-gray-900">{answer.text}</span>
-                            <span className="text-sm text-gray-500">{percentage}%</span>
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{answer.text}</span>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">{percentage}%</span>
                           </div>
-                          <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
+                          <div className="bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all"
                               style={{
@@ -242,7 +242,7 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
                             />
                           </div>
                         </div>
-                        <span className="text-sm font-medium text-gray-500">{answer.votes}</span>
+                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{answer.votes}</span>
                       </div>
                     );
                   })}
@@ -253,25 +253,25 @@ export const PollView: React.FC<PollViewProps> = ({ poll, onVote, onBack, onUpda
 
           <Card className="p-6">
             {!poll.aiAnalysis ? (
-              <div className="bg-indigo-50 rounded-lg p-4 text-center">
-                <p className="text-indigo-900 text-sm mb-3 font-medium">Want deeper insights?</p>
+              <div className="bg-indigo-50 dark:bg-indigo-950 rounded-lg p-4 text-center">
+                <p className="text-indigo-900 dark:text-indigo-300 text-sm mb-3 font-medium">Want deeper insights?</p>
                 <Button 
                   onClick={handleAnalyze} 
                   variant="secondary"
                   isLoading={isAnalyzing}
-                  className="w-full text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                  className="w-full text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900"
                 >
                   <Sparkles className="w-4 h-4 mr-2" />
                   Analyze with Gemini AI
                 </Button>
               </div>
             ) : (
-              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-5 border border-indigo-100">
-                <div className="flex items-center gap-2 mb-2 text-indigo-800 font-semibold">
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 rounded-lg p-5 border border-indigo-100 dark:border-gray-700">
+                <div className="flex items-center gap-2 mb-2 text-indigo-800 dark:text-indigo-300 font-semibold">
                   <Sparkles className="w-4 h-4" />
                   <span>AI Insight</span>
                 </div>
-                <p className="text-gray-700 text-sm leading-relaxed italic">
+                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed italic">
                   "{poll.aiAnalysis}"
                 </p>
               </div>
