@@ -36,7 +36,7 @@ Theme preference is persisted in `localStorage` and synced with the system media
 - **Frontend:** React 19, TypeScript, Vite 6
 - **Styling:** Tailwind (class‑based dark mode), custom UI components
 - **Web3:** Wagmi + Viem (Sepolia), Reown Provider for connection management
-- **Smart Contracts:** Pre‑existing poll contracts (addresses configured in `SURVEY_CONTRACTS`)
+- **Smart Contracts:** Pre‑existing poll contracts (addresses configured in `SURVEY_CONTRACTS`). ![Remix](https://remix.ethereum.org/) is being used for edit and deploy the smart contract.
 - **AI:** Gemini for optional result analysis; GitHub Copilot assisted development
 - **Infra:** Docker multi‑stage build + Nginx static serving; runtime env injection via `env.js`
 - **Runtime Config:** `APP_` prefix (runtime), `VITE_` prefix (build‑time) unified through `env.ts`
